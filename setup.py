@@ -17,7 +17,8 @@
 import sys
 from pathlib import Path
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
+
 """
  Build and upload to testpypi:
      conda install -c conda-forge build twine
@@ -32,43 +33,49 @@ from setuptools import setup, find_packages
 """
 
 this_directory = Path(__file__).parent
-long_description = (this_directory / 'README.rst').read_text()
-sys.path[0:0] = ['geedim']
+long_description = (this_directory / "README.rst").read_text()
+sys.path[0:0] = ["geedim"]
 from version import __version__
 
 setup(
-    name='geedim',
+    name="geedim",
     version=__version__,
-    description='Search, composite and download Google Earth Engine imagery.',
+    description="Search, composite and download Google Earth Engine imagery.",
     long_description=long_description,
-    long_description_content_type='text/x-rst',
-    author='Dugal Harris',
-    author_email='dugalh@gmail.com',
-    url='https://github.com/leftfield-geospatial/geedim',
-    license='Apache-2.0',
-    packages=find_packages(include=['geedim']),
-    package_data={'geedim': ['data/ee_stac_urls.json']},
+    long_description_content_type="text/x-rst",
+    author="Dugal Harris",
+    author_email="dugalh@gmail.com",
+    url="https://github.com/leftfield-geospatial/geedim",
+    license="Apache-2.0",
+    packages=find_packages(include=["geedim"]),
+    package_data={"geedim": ["data/ee_stac_urls.json"]},
     install_requires=[
-        'numpy>=1.19',
-        'rasterio>=1.1',
-        'click>=8',
-        'tqdm>=4.6',
-        'earthengine-api>=0.1.2',
-        'requests>=2.2',
-        'tabulate>=0.8',
+        "numpy>=1.19",
+        "rasterio>=1.1",
+        "click>=8",
+        "tqdm>=4.6",
+        "earthengine-api>=0.1.2",
+        "requests>=2.2",
+        "tabulate>=0.8",
     ],
-    python_requires='>=3.6',
+    python_requires=">=3.6",
     classifiers=[
-        'Programming Language :: Python :: 3',
-        'License :: OSI Approved :: Apache Software License',
-        'Operating System :: OS Independent',
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: Apache Software License",
+        "Operating System :: OS Independent",
     ],
     keywords=[
-        'earth engine', 'satellite imagery', 'search', 'download', 'composite', 'cloud', 'shadow',
+        "earth engine",
+        "satellite imagery",
+        "search",
+        "download",
+        "composite",
+        "cloud",
+        "shadow",
     ],
-    entry_points={'console_scripts': ['geedim=geedim.cli:cli']},
+    entry_points={"console_scripts": ["geedim=geedim.cli:cli"]},
     project_urls={
-        'Documentation': 'https://geedim.readthedocs.io',
-        'Source': 'https://github.com/leftfield-geospatial/geedim',
+        "Documentation": "https://geedim.readthedocs.io",
+        "Source": "https://github.com/leftfield-geospatial/geedim",
     },
 )  # yapf: disable

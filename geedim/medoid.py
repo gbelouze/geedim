@@ -13,9 +13,12 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 """
+from typing import List, Optional
+
 import ee
+
 from geedim.enums import SpectralDistanceMetric
-from typing import Optional, List
+
 """
     This module contains Medoid related functionality adapted from 'Google Earth Engine tools' under MIT 
     license.  See https://github.com/gee-community/gee_tools.
@@ -23,10 +26,12 @@ from typing import Optional, List
 
 
 def sum_distance(
-    image: ee.Image, collection: ee.ImageCollection, bands: Optional[List] = None,
+    image: ee.Image,
+    collection: ee.ImageCollection,
+    bands: Optional[List] = None,
     metric: SpectralDistanceMetric = SpectralDistanceMetric.sed,
 ) -> ee.Image:
-    """ Find the sum of the spectral distances between the provided ``image`` and image ``collection``. """
+    """Find the sum of the spectral distances between the provided ``image`` and image ``collection``."""
     metric = SpectralDistanceMetric(metric)
     if not bands:
         bands = collection.first().bandNames()
@@ -63,7 +68,9 @@ def sum_distance(
 
 
 def medoid_score(
-    collection: ee.ImageCollection, bands: Optional[List] = None, name: str = 'sumdist',
+    collection: ee.ImageCollection,
+    bands: Optional[List] = None,
+    name: str = "sumdist",
 ) -> ee.ImageCollection:
     """
     Add medoid score band (i.e. summed distance to all other images) to all images in ``collection``.
@@ -84,7 +91,7 @@ def medoid_score(
     """
 
     def add_score_band(image: ee.Image):
-        """ Add medoid score band to provided ``image``. """
+        """Add medoid score band to provided ``image``."""
         image = ee.Image(image)
 
         # Compute the sum of the euclidean distance between the current image
@@ -115,7 +122,7 @@ def medoid(collection: ee.ImageCollection, bands: Optional[List] = None) -> ee.I
     ee.Image
         Medoid composite image.
     """
-    name = 'sumdist'
+    name = "sumdist"
     medoid_coll = medoid_score(collection, bands, name=name)
     comp_im = medoid_coll.qualityMosaic(name)
     # remove score band and return

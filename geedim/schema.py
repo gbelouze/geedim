@@ -13,9 +13,11 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 """
+from textwrap import wrap
+
 # schema definitions for MaskedImage.from_id(), geedim <-> EE collection names, and search properties
 from tabulate import tabulate
-from textwrap import wrap
+
 import geedim.mask
 
 # yapf: disable
@@ -123,29 +125,33 @@ collection_schema = {
 # yapf: enable
 
 # Dict to convert from geedim to Earth Engine collection names
-ee_to_gd = dict([(k, v['gd_coll_name']) for k, v in collection_schema.items()])
+ee_to_gd = dict([(k, v["gd_coll_name"]) for k, v in collection_schema.items()])
 
 # Dict to convert from Earth Engine to geedim collection names
-gd_to_ee = dict([(v['gd_coll_name'], k) for k, v in collection_schema.items()])
+gd_to_ee = dict([(v["gd_coll_name"], k) for k, v in collection_schema.items()])
 
 # "Two way" dict to convert Earth Engine to/from geedim collection names
 coll_names = dict(**gd_to_ee, **ee_to_gd)
 
 # A list of cloud/shadow mask supported EE collection names
-cloud_coll_names = [k for k, v in collection_schema.items() if v['image_type'] != geedim.mask.MaskedImage]
+cloud_coll_names = [
+    k
+    for k, v in collection_schema.items()
+    if v["image_type"] != geedim.mask.MaskedImage
+]
 
 
 def cli_cloud_coll_table() -> str:
-    """ Return a table of cloud/shadow mask supported collections for use in CLI help strings. """
-    headers = dict(gd_coll_name='geedim name', ee_coll_name='EE name')
+    """Return a table of cloud/shadow mask supported collections for use in CLI help strings."""
+    headers = dict(gd_coll_name="geedim name", ee_coll_name="EE name")
     data = []
     for key, val in collection_schema.items():
-        if val['image_type'] != geedim.mask.MaskedImage:
-            data.append(dict(gd_coll_name=val['gd_coll_name'], ee_coll_name=key))
-    return tabulate(data, headers=headers, tablefmt='rst')
+        if val["image_type"] != geedim.mask.MaskedImage:
+            data.append(dict(gd_coll_name=val["gd_coll_name"], ee_coll_name=key))
+    return tabulate(data, headers=headers, tablefmt="rst")
 
 
-def cloud_coll_table(descr_join='\n') -> str:
+def cloud_coll_table(descr_join="\n") -> str:
     """
     Return a table of cloud/shadow mask supported collections.
     * Use descr_join='\n' for github README friendly formatting.
@@ -156,12 +162,14 @@ def cloud_coll_table(descr_join='\n') -> str:
     * print(cloud_coll_table()) and paste into the README.
     * The equivalent RTD table is auto-generated in docs/conf.py.
     """
-    headers = dict(ee_coll_name='EE name', descr='Description')
+    headers = dict(ee_coll_name="EE name", descr="Description")
     data = []
     for key, val in collection_schema.items():
-        if val['image_type'] != geedim.mask.MaskedImage:
-            ee_coll_name = '\n'.join(wrap(f'`{key} <{val["ee_url"]}>`_', width=40))
-            descr = descr_join.join(wrap(val['description'], width=60))   # for RTD multiline table
+        if val["image_type"] != geedim.mask.MaskedImage:
+            ee_coll_name = "\n".join(wrap(f'`{key} <{val["ee_url"]}>`_', width=40))
+            descr = descr_join.join(
+                wrap(val["description"], width=60)
+            )  # for RTD multiline table
             data.append(dict(ee_coll_name=ee_coll_name, descr=descr))
 
-    return tabulate(data, headers=headers, tablefmt='grid')
+    return tabulate(data, headers=headers, tablefmt="grid")

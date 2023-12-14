@@ -21,79 +21,83 @@ class CompositeMethod(str, Enum):
     Enumeration for the compositing method, i.e. the method for finding a composite pixel from the stack of
     corresponding input image pixels.
     """
-    q_mosaic = 'q-mosaic'
+
+    q_mosaic = "q-mosaic"
     """ 
     Use the unmasked pixel with the highest cloud distance (distance to nearest cloud). Where more than one pixel has 
     the same cloud distance, the first one in the stack is selected.     
     """
 
-    mosaic = 'mosaic'
+    mosaic = "mosaic"
     """ Use the first unmasked pixel in the stack. """
 
-    medoid = 'medoid'
+    medoid = "medoid"
     """
     Use the medoid of the unmasked pixels.  This is the pixel from the image having the minimum sum of spectral 
     distances to the rest of the images. 
     Maintains the original relationship between bands. See https://www.mdpi.com/2072-4292/5/12/6481 for detail.
     """
 
-    median = 'median'
+    median = "median"
     """ Use the median of the unmasked pixels. """
 
-    mode = 'mode'
+    mode = "mode"
     """ Use the mode of the unmasked pixels. """
 
-    mean = 'mean'
+    mean = "mean"
     """ Use the mean of the unmasked pixels. """
 
 
 class CloudMaskMethod(str, Enum):
-    """ Enumeration for the Sentinel-2 cloud masking method. """
-    cloud_prob = 'cloud-prob'
+    """Enumeration for the Sentinel-2 cloud masking method."""
+
+    cloud_prob = "cloud-prob"
     """ Threshold the corresponding image from the Sentinel-2 cloud probability collection. """
 
-    qa = 'qa'
+    qa = "qa"
     """ Use the `QA60` quality assessment band. """
 
 
 class ResamplingMethod(str, Enum):
-    """ Enumeration for the resampling method. """
-    near = 'near'
+    """Enumeration for the resampling method."""
+
+    near = "near"
     """ Nearest neighbour. """
 
-    bilinear = 'bilinear'
+    bilinear = "bilinear"
     """ Bilinear. """
 
-    bicubic = 'bicubic'
+    bicubic = "bicubic"
     """ Bicubic. """
 
-    average = 'average'
+    average = "average"
     """ Average (recommended for downsampling). """
 
 
 class ExportType(str, Enum):
-    """ Enumeration for the export type. """
-    drive = 'drive'
+    """Enumeration for the export type."""
+
+    drive = "drive"
     """ Export to Google Drive. """
 
-    asset = 'asset'
+    asset = "asset"
     """ Export to an Earth Engine asset. """
 
-    cloud = 'cloud'
+    cloud = "cloud"
     """ Export to Google Cloud Storage. """
 
 
 class SpectralDistanceMetric(str, Enum):
-    """ Enumeration for the spectral distance metric. """
-    sam = 'sam'
+    """Enumeration for the spectral distance metric."""
+
+    sam = "sam"
     """ Spectral angle mapper. """
 
-    sid = 'sid'
+    sid = "sid"
     """ Spectral information divergence. """
 
-    sed = 'sed'
+    sed = "sed"
     """ Squared euclidean distance. """
 
-    emd = 'emd'
+    emd = "emd"
     """ Earth movers distance. """
-
