@@ -14,17 +14,21 @@
    limitations under the License.
 """
 
+import logging
+import threading
 import zipfile
 from io import BytesIO
-import threading
 
 import numpy as np
-import requests
 import rasterio as rio
+import requests
 from rasterio import Affine, MemoryFile
 from rasterio.windows import Window
 from tqdm.auto import tqdm
+
 from geedim import utils
+
+logger = logging.getLogger(__name__)
 
 
 class Tile:
@@ -58,6 +62,9 @@ class Tile:
         """ Get tile download url and response. """
         session = session if session else requests
         with self._ee_lock:
+            logger.debug(
+                f"Download with crs={self._exp_image.crs} transform={tuple(self._transform[:6])} dimensions={self._shape[::-1]}"
+            )
             url = self._exp_image.ee_image.getDownloadURL(
                 dict(
                     crs=self._exp_image.crs, crs_transform=tuple(self._transform)[:6], dimensions=self._shape[::-1],
@@ -122,7 +129,7 @@ class Tile:
         ext_buffer = BytesIO(zip_file.read(zip_file.filelist[0]))
 
         # read the geotiff with a rasterio memory file
-        env = rio.Env(GDAL_NUM_THREADS='ALL_CPUs', GTIFF_FORCE_RGBA=False)
+        env = rio.Env(GDAL_NUM_THREADS="ALL_CPUs", GTIFF_FORCE_RGBA=False, err="quiet")
         with utils.suppress_rio_logs(), env, MemoryFile(ext_buffer) as mem_file:
             with mem_file.open() as ds:
                 array = ds.read()

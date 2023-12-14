@@ -830,8 +830,14 @@ class BaseImage:
         return task
 
     def download(
-        self, filename: Union[pathlib.Path, str], overwrite: bool = False, num_threads: Optional[int] = None,
-        max_tile_size: Optional[float] = None, max_tile_dim: Optional[int] = None, **kwargs
+        self,
+        filename: Union[pathlib.Path, str],
+        overwrite: bool = False,
+        num_threads: Optional[int] = None,
+        max_tile_size: Optional[float] = None,
+        max_tile_dim: Optional[int] = None,
+        show_progress: bool = True,
+        **kwargs,
     ):
         """
         Download the encapsulated image to a GeoTiff file.
@@ -884,6 +890,8 @@ class BaseImage:
             Whether to apply any EE band scales and offsets to the image.
         bands: list of str, optional
             List of band names to download.
+        show_progress: bool, optional
+            Whether to display a progress bar. Default is True.
         """
 
         max_threads = num_threads or min(32, (os.cpu_count() or 1) + 4)
@@ -920,25 +928,42 @@ class BaseImage:
                 f' download size (raw: {BaseImage._str_format_size(raw_download_size)}).'
             )
 
-        # configure the progress bar to monitor raw/uncompressed download size
-        desc = filename.name if (len(filename.name) < self._desc_width) else f'...{filename.name[-self._desc_width:]}'
-        bar_format = (
-            '{desc}: |{bar}| {n_fmt}/{total_fmt} (raw) [{percentage:5.1f}%] in {elapsed:>5s} (eta: {remaining:>5s})'
-        )
-        bar = tqdm(
-            desc=desc, total=raw_download_size, bar_format=bar_format, dynamic_ncols=True, unit_scale=True, unit='B'
-        )
-
+        env = rio.Env(GDAL_NUM_THREADS="ALL_CPUs", GTIFF_FORCE_RGBA=False)
         session = utils.retry_session(5)
-        warnings.filterwarnings('ignore', category=TqdmWarning)
-        # redirect logging through tqdm
-        redir_tqdm = logging_redirect_tqdm([logging.getLogger(__package__)], tqdm_class=type(bar))
-        env = rio.Env(GDAL_NUM_THREADS='ALL_CPUs', GTIFF_FORCE_RGBA=False)
-        with redir_tqdm, env, rio.open(filename, 'w', **profile) as out_ds, bar:
+        with ExitStack() as stack:
+            if show_progress:
+                # configure the progress bar to monitor raw/uncompressed download size
+                desc = (
+                    filename.name
+                    if (len(filename.name) < self._desc_width)
+                    else f"...{filename.name[-self._desc_width:]}"
+                )
+                bar_format = "{desc}: |{bar}| {n_fmt}/{total_fmt} (raw) [{percentage:5.1f}%] in {elapsed:>5s} (eta: {remaining:>5s})"
+                bar = tqdm(
+                    desc=desc,
+                    total=raw_download_size,
+                    bar_format=bar_format,
+                    dynamic_ncols=True,
+                    unit_scale=True,
+                    unit="B",
+                )
+
+                warnings.filterwarnings("ignore", category=TqdmWarning)
+                # redirect logging through tqdm
+                redir_tqdm = logging_redirect_tqdm(
+                    [logging.getLogger(__package__)], tqdm_class=type(bar)
+                )
+                stack.enter_context(redir_tqdm)
+                stack.enter_context(bar)
+            stack.enter_context(env)
+            out_ds = stack.enter_context(rio.open(filename, "w", **profile))
 
             def download_tile(tile):
-                """Download a tile and write into the destination GeoTIFF. """
-                tile_array = tile.download(session=session, bar=bar)
+                """Download a tile and write into the destination GeoTIFF."""
+                if show_progress:
+                    tile_array = tile.download(session=session, bar=bar)
+                else:
+                    tile_array = tile.download(session=session)
                 with out_lock:
                     out_ds.write(tile_array, window=tile.window)
 
@@ -954,7 +979,8 @@ class BaseImage:
                     executor.shutdown(wait=False)
                     raise ex
 
-            bar.update(bar.total - bar.n)   # ensure the bar reaches 100%
+            if show_progress:
+                bar.update(bar.total - bar.n)  # ensure the bar reaches 100%
             # populate GeoTIFF metadata
             exp_image._write_metadata(out_ds)
 

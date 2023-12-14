@@ -110,15 +110,18 @@ def split_id(image_id: str) -> Tuple[str, str]:
 
 @contextmanager
 def suppress_rio_logs(level: int = logging.ERROR):
-    """ A context manager that sets the `rasterio` logging level, then returns it to its original value. """
+    """A context manager that sets the `rasterio` logging level, then returns it to its original value."""
     try:
         # GEE sets GeoTIFF `colorinterp` tags incorrectly. This suppresses `rasterio` warning relating to this:
         # 'Sum of Photometric type-related color channels and ExtraSamples doesn't match SamplesPerPixel'
-        rio_level = logging.getLogger('rasterio').getEffectiveLevel()
-        logging.getLogger('rasterio').setLevel(level)
+        rio_level = logging.getLogger("rasterio").getEffectiveLevel()
+        rio_env_level = logging.getLogger("rasterio._env").getEffectiveLevel()
+        logging.getLogger("rasterio").setLevel(level)
+        logging.getLogger("rasterio._env").setLevel(level)
         yield
     finally:
-        logging.getLogger('rasterio').setLevel(rio_level)
+        logging.getLogger("rasterio").setLevel(rio_level)
+        logging.getLogger("rasterio._env").setLevel(rio_env_level)
 
 
 def get_bounds(filename: pathlib.Path, expand: float = 5):
