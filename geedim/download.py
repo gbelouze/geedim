@@ -1140,6 +1140,7 @@ class BaseImage:
             with ThreadPoolExecutor(max_workers=max_threads) as executor:
                 # Run the tile downloads in a thread pool
                 tiles = exp_image._tiles(tile_shape=tile_shape)
+                logger.debug(f"Image is split into {len(tiles)} tiles for download")
                 futures = [executor.submit(download_tile, tile) for tile in tiles]
                 try:
                     for future in as_completed(futures):
