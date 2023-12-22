@@ -523,7 +523,7 @@ class MaskedCollection:
         region: Dict = None,
         fill_portion: float = None,
         cloudless_portion: float = None,
-        custom_filter: str = None,
+        custom_filter: str | ee.Filter | List[str | ee.Filter] = None,
         **kwargs,
     ) -> "MaskedCollection":
         """
@@ -548,8 +548,8 @@ class MaskedCollection:
             Lower limit on the portion of region that contains filled/valid image pixels (%).
         cloudless_portion: float, optional
             Lower limit on the portion of filled pixels that are cloud/shadow free (%).
-        custom_filter: str, optional
-            Custom image property filter expression e.g. "property > value".  See the `EE docs
+        custom_filter: str | ee.Filter | List[str, ee.Filter], optional
+            Custom image property filter(s) expression e.g. "property > value".  See the `EE docs
             <https://developers.google.com/earth-engine/apidocs/ee-filter-expression>`_.
         **kwargs
             Optional cloud/shadow masking parameters - see :meth:`geedim.mask.MaskedImage.__init__` for details.
@@ -594,14 +594,19 @@ class MaskedCollection:
             ee_collection = ee_collection.filterBounds(region)
 
         # when possible filter on custom_filter before calling set_region_stats to reduce computation
-        if custom_filter and all(
-            [
-                prop_key not in custom_filter
-                for prop_key in ["FILL_PORTION", "CLOUDLESS_PORTION"]
-            ]
-        ):
-            ee_collection = ee_collection.filter(ee.Filter.expression(custom_filter))
-            custom_filter = None
+        def to_ee_filter(filter: str | ee.Filter) -> ee.Filter:
+            if isinstance(filter, ee.Filter):
+                return filter
+            return ee.Filter.expression(filter)
+
+        if isinstance(custom_filter, List):
+            custom_filters = [to_ee_filter(filter) for filter in custom_filter]
+        elif custom_filter is not None:
+            custom_filters = [to_ee_filter(custom_filter)]
+        else:
+            custom_filters = []
+        for filter in custom_filters:
+            ee_collection = ee_collection.filter(filter)
 
         if (
             (fill_portion is not None)
@@ -618,13 +623,6 @@ class MaskedCollection:
             if cloudless_portion and self.image_type != MaskedImage:
                 ee_collection = ee_collection.filter(
                     ee.Filter.gte("CLOUDLESS_PORTION", cloudless_portion)
-                )
-
-            # filter on custom_filter that refers to FILL_ or CLOUDLESS_PORTION
-            if custom_filter:
-                # this expression can include properties from set_region_stats
-                ee_collection = ee_collection.filter(
-                    ee.Filter.expression(custom_filter)
                 )
 
         ee_collection = ee_collection.sort("system:time_start")
