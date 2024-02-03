@@ -634,7 +634,6 @@ class BaseImage:
         )
         # drop items with values==None
         export_kwargs = {k: v for k, v in export_kwargs.items() if v is not None}
-        logger.debug(f"ee.Image.prepare_for_export() params: {export_kwargs}")
         # TODO: prepare_for_export does not seem to be used in ee internals any more
         ee_image, _ = ee_image.prepare_for_export(export_kwargs)
         return BaseImage(ee_image)
@@ -1140,8 +1139,8 @@ class BaseImage:
             with ThreadPoolExecutor(max_workers=max_threads) as executor:
                 # Run the tile downloads in a thread pool
                 tiles = exp_image._tiles(tile_shape=tile_shape)
-                logger.debug(f"Image is split into {len(tiles)} tiles for download")
                 futures = [executor.submit(download_tile, tile) for tile in tiles]
+                logger.debug(f"Image is split into {len(futures)} tiles for download")
                 try:
                     for future in as_completed(futures):
                         future.result()
