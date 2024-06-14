@@ -20,9 +20,7 @@ import os
 import pathlib
 import threading
 import time
-import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from contextlib import ExitStack
 from datetime import datetime
 from itertools import product
 from typing import Dict, Iterator, List, Optional, Tuple, Union
@@ -33,9 +31,8 @@ import rasterio as rio
 from rasterio import features, warp, windows
 from rasterio.crs import CRS
 from rasterio.enums import Resampling as RioResampling
-from tqdm import TqdmWarning
+from rich.progress import Progress
 from tqdm.auto import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
 
 from geedim import utils
 from geedim.enums import ExportType, ResamplingMethod
@@ -1001,7 +998,7 @@ class BaseImage:
         num_threads: Optional[int] = None,
         max_tile_size: Optional[float] = None,
         max_tile_dim: Optional[int] = None,
-        show_progress: bool = True,
+        progress: Optional[Progress] = None,
         **kwargs,
     ):
         """
@@ -1055,11 +1052,12 @@ class BaseImage:
             Whether to apply any EE band scales and offsets to the image.
         bands: list of str, optional
             List of band names to download.
-        show_progress: bool, optional
-            Whether to display a progress bar. Default is True.
+        progress: rich.progress.Progress, optional
+            A rich Progress object to display download progress. If None, no progress bar is shown.
         """
 
-        max_threads = num_threads or min(32, (os.cpu_count() or 1) + 4)
+        max_threads = num_threads or min(10, (os.cpu_count() or 1) + 4)
+        logger.debug(f"Using {max_threads} threads for download.")
         out_lock = threading.Lock()
         filename = pathlib.Path(filename)
         if filename.exists():
@@ -1097,42 +1095,23 @@ class BaseImage:
                 f" download size (raw: {BaseImage._str_format_size(raw_download_size)})."
             )
 
-        env = rio.Env(GDAL_NUM_THREADS="ALL_CPUs", GTIFF_FORCE_RGBA=False)
         session = utils.retry_session(5)
-        with ExitStack() as stack:
-            if show_progress:
-                # configure the progress bar to monitor raw/uncompressed download size
-                desc = (
-                    filename.name
-                    if (len(filename.name) < self._desc_width)
-                    else f"...{filename.name[-self._desc_width:]}"
-                )
-                bar_format = "{desc}: |{bar}| {n_fmt}/{total_fmt} (raw) [{percentage:5.1f}%] in {elapsed:>5s} (eta: {remaining:>5s})"
-                bar = tqdm(
-                    desc=desc,
-                    total=raw_download_size,
-                    bar_format=bar_format,
-                    dynamic_ncols=True,
-                    unit_scale=True,
-                    unit="B",
-                )
 
-                warnings.filterwarnings("ignore", category=TqdmWarning)
-                # redirect logging through tqdm
-                redir_tqdm = logging_redirect_tqdm(
-                    [logging.getLogger(__package__)], tqdm_class=type(bar)
-                )
-                stack.enter_context(redir_tqdm)
-                stack.enter_context(bar)
-            stack.enter_context(env)
-            out_ds = stack.enter_context(rio.open(filename, "w", **profile))
+        task = None
+        if progress is not None:
+            # configure the progress bar to monitor raw/uncompressed download size
+            task = progress.add_task(
+                f"[magenta]Downloading {filename.name}[/]",
+                total=num_tiles,
+            )
+        with (
+            rio.Env(GDAL_NUM_THREADS="ALL_CPUs", GTIFF_FORCE_RGBA=False),
+            rio.open(filename, "w", **profile) as out_ds,
+        ):
 
-            def download_tile(tile):
+            def download_tile(tile: Tile):
                 """Download a tile and write into the destination GeoTIFF."""
-                if show_progress:
-                    tile_array = tile.download(session=session, bar=bar)
-                else:
-                    tile_array = tile.download(session=session)
+                tile_array = tile.download(session=session, num_threads=max_threads)
                 with out_lock:
                     out_ds.write(tile_array, window=tile.window)
 
@@ -1140,17 +1119,36 @@ class BaseImage:
                 # Run the tile downloads in a thread pool
                 tiles = exp_image._tiles(tile_shape=tile_shape)
                 futures = [executor.submit(download_tile, tile) for tile in tiles]
-                logger.debug(f"Image is split into {len(futures)} tiles for download")
                 try:
-                    for future in as_completed(futures):
-                        future.result()
+                    if progress is not None:
+                        for completed_future in as_completed(futures):
+                            n_finished = sum([future.done() for future in futures])
+                            progress.update(
+                                task, completed=n_finished, total=len(futures)
+                            )
+                            completed_future.result()
+                        progress.update(task, visible=False)
+                    else:
+                        for completed_future in as_completed(futures):
+                            completed_future.result()
+                except KeyboardInterrupt:
+                    logger.error(
+                        "Keyboard interrupt while downloading. "
+                        # "[red]Please wait[/] while current downloads finish (this may take up to a few minutes)."
+                    )
+                    executor.shutdown(wait=False, cancel_futures=True)
+                    if filename.exists():
+                        filename.unlink()
+                    executor.shutdown(wait=True, cancel_futures=True)
+                    raise
                 except Exception as ex:
                     logger.info(f"Exception: {str(ex)}\nCancelling...")
-                    executor.shutdown(wait=False)
+                    executor.shutdown(wait=False, cancel_futures=True)
+                    if filename.exists():
+                        filename.unlink()
+                    executor.shutdown(wait=True, cancel_futures=True)
                     raise ex
 
-            if show_progress:
-                bar.update(bar.total - bar.n)  # ensure the bar reaches 100%
             # populate GeoTIFF metadata
             exp_image._write_metadata(out_ds)
 

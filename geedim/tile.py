@@ -18,13 +18,13 @@ import logging
 import threading
 import zipfile
 from io import BytesIO
+from typing import Optional
 
 import numpy as np
 import rasterio as rio
 import requests
 from rasterio import Affine, MemoryFile
 from rasterio.windows import Window
-from tqdm.auto import tqdm
 
 from geedim import utils
 
@@ -60,13 +60,18 @@ class Tile:
         """rasterio tile window into the source image."""
         return self._window
 
-    def _get_download_url_response(self, session=None):
+    def _get_download_url_response(
+        self,
+        session: Optional[requests.Session] = None,
+        num_threads: Optional[int] = None,
+    ):
         """Get tile download url and response."""
-        session = session if session else requests
+        if session is None:
+            session = requests.Session()
+        if num_threads is not None:
+            adapter = requests.adapters.HTTPAdapter(pool_maxsize=num_threads)
+            session.mount("https://", adapter)
         with self._ee_lock:
-            logger.debug(
-                f"Download with crs={self._exp_image.crs} transform={tuple(self._transform[:6])} dimensions={self._shape[::-1]}"
-            )
             url = self._exp_image.ee_image.getDownloadURL(
                 dict(
                     crs=self._exp_image.crs,
@@ -78,7 +83,7 @@ class Tile:
             )
         return session.get(url, stream=True), url
 
-    def download(self, session=None, response=None, bar: tqdm = None):
+    def download(self, session=None, response=None, num_threads=None):
         """
         Download the image tile into a numpy array.
 
@@ -88,8 +93,8 @@ class Tile:
             requests session to use for downloading
         response: requests.Response, optional
             Response to a get request on the tile download url.
-        bar: tqdm, optional
-            tqdm progress bar instance to update with incremental (0-1) download progress.
+        num_threads: int, optional
+            Number of threads used for download
 
         Returns
         -------
@@ -99,15 +104,11 @@ class Tile:
 
         # get image download url and response
         if response is None:
-            response, url = self._get_download_url_response(session=session)
+            response, url = self._get_download_url_response(
+                session=session, num_threads=num_threads
+            )
 
-        # find raw and actual download sizes
-        dtype_size = np.dtype(self._exp_image.dtype).itemsize
-        raw_download_size = (
-            self._shape[0] * self._shape[1] * self._exp_image.count * dtype_size
-        )
         download_size = int(response.headers.get("content-length", 0))
-
         if download_size == 0 or not response.ok:
             resp_dict = response.json()
             if "error" in resp_dict and "message" in resp_dict["error"]:
@@ -126,9 +127,6 @@ class Tile:
         zip_buffer = BytesIO()
         for data in response.iter_content(chunk_size=10240):
             zip_buffer.write(data)
-            if bar is not None:
-                # update with raw download progress (0-1)
-                bar.update(raw_download_size * (len(data) / download_size))
         zip_buffer.flush()
 
         # extract geotiff from zipped buffer into another buffer
