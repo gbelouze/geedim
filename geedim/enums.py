@@ -13,6 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 """
+
 from enum import Enum
 
 
@@ -23,9 +24,9 @@ class CompositeMethod(str, Enum):
     """
 
     q_mosaic = "q-mosaic"
-    """ 
-    Use the unmasked pixel with the highest cloud distance (distance to nearest cloud). Where more than one pixel has 
-    the same cloud distance, the first one in the stack is selected.     
+    """
+    Use the unmasked pixel with the highest cloud distance (distance to nearest cloud). Where more than one pixel has
+    the same cloud distance, the first one in the stack is selected.
     """
 
     mosaic = "mosaic"
@@ -33,8 +34,8 @@ class CompositeMethod(str, Enum):
 
     medoid = "medoid"
     """
-    Use the medoid of the unmasked pixels.  This is the pixel from the image having the minimum sum of spectral 
-    distances to the rest of the images. 
+    Use the medoid of the unmasked pixels.  This is the pixel from the image having the minimum sum of spectral
+    distances to the rest of the images.
     Maintains the original relationship between bands. See https://www.mdpi.com/2072-4292/5/12/6481 for detail.
     """
 

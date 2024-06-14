@@ -13,6 +13,7 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 """
+
 import json
 import logging
 import threading
@@ -236,5 +237,5 @@ class StacCatalog:
         coll_name = utils.split_id(name)[0]
         if coll_name in self.url_dict:
             name = coll_name
-        item_dict = self.get_item_dict(name)
+        item_dict = self.get_item_dict(name) if name is not None else {}
         return StacItem(name, item_dict) if item_dict else None

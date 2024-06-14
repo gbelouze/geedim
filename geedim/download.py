@@ -67,7 +67,7 @@ class BaseImage:
     _desc_width = 50
     _default_resampling = ResamplingMethod.near
     _ee_max_tile_size = 32
-    _ee_max_tile_dim = 10000
+    _ee_max_tile_dim = 10_000
     _default_export_type = ExportType.drive
 
     def __init__(self, ee_image: ee.Image):
@@ -524,8 +524,8 @@ class BaseImage:
                 # if the image has no fixed projection, either crs, region, & scale; or crs, crs_transform and shape
                 # must be specified
                 raise ValueError(
-                    f"This image does not have a fixed projection, you need to specify a crs, region & scale; or a "
-                    f"crs, crs_transform & shape."
+                    "This image does not have a fixed projection, you need to specify a crs, region & scale; or a "
+                    "crs, crs_transform & shape."
                 )
 
         if (not region and (not crs or not crs_transform or not shape)) and (
@@ -677,7 +677,7 @@ class BaseImage:
         )
         # add BIGTIFF support if the uncompressed image is bigger than 4GB
         if exp_image.size >= 4e9:
-            profile.update(bigtiff=True)
+            profile.update(bigtiff="yes")
         return exp_image, profile
 
     def _get_tile_shape(

@@ -252,7 +252,7 @@ class Spinner(Thread):
 
     def run(self):
         """Run the spinner thread."""
-        cursors_it = itertools.cycle("/-\|")
+        cursors_it = itertools.cycle(r"/-\|")
 
         while self._run:
             cursor = next(cursors_it)
@@ -260,9 +260,9 @@ class Spinner(Thread):
             self._file.flush()
             time.sleep(self._interval)
 
-        if self._leave == True:
+        if self._leave is True:
             tqdm.write("", file=self._file, end="\n")
-        elif self._leave == False:
+        elif self._leave is False:
             tqdm.write("\r", file=self._file, end="")
         elif isinstance(self._leave, str):
             tqdm.write(
