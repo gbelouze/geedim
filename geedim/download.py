@@ -32,6 +32,7 @@ from rasterio import features, warp, windows
 from rasterio.crs import CRS
 from rasterio.enums import Resampling as RioResampling
 from rich.progress import Progress
+from shapely import Polygon
 from tqdm.auto import tqdm
 
 from geedim import utils
@@ -1118,7 +1119,33 @@ class BaseImage:
             with ThreadPoolExecutor(max_workers=max_threads) as executor:
                 # Run the tile downloads in a thread pool
                 tiles = exp_image._tiles(tile_shape=tile_shape)
-                futures = [executor.submit(download_tile, tile) for tile in tiles]
+                futures = []
+                if (
+                    "coordinates" in self.footprint
+                    and len(self.footprint["coordinates"]) > 0
+                ):
+                    if "crs" in self.footprint:
+                        crs = utils.rio_crs(self.footprint["crs"]["properties"]["name"])
+                    else:
+                        crs = CRS.from_epsg(4326)
+                    im_bounds = utils.transform_polygon(
+                        Polygon(self.footprint["coordinates"][0]),
+                        crs,
+                        utils.rio_crs(exp_image.crs),
+                    )
+                else:
+                    im_bounds = None
+                keep_count, skip_count = 0, 0
+                for tile in tiles:
+                    tile_bounds = utils.bounds_to_polygon(
+                        *rio.windows.bounds(tile.window, exp_image.transform)
+                    )
+                    if im_bounds is None or tile_bounds.intersects(im_bounds):
+                        futures.append(executor.submit(download_tile, tile))
+                        keep_count += 1
+                    else:
+                        skip_count += 1
+                logger.debug(f"Skipped {skip_count} windows, kept {keep_count}.")
                 try:
                     if progress is not None:
                         for completed_future in as_completed(futures):
@@ -1126,6 +1153,7 @@ class BaseImage:
                             progress.update(
                                 task, completed=n_finished, total=len(futures)
                             )
+                            progress.refresh()
                             completed_future.result()
                         progress.update(task, visible=False)
                     else:
@@ -1134,7 +1162,7 @@ class BaseImage:
                 except KeyboardInterrupt:
                     logger.error(
                         "Keyboard interrupt while downloading. "
-                        # "[red]Please wait[/] while current downloads finish (this may take up to a few minutes)."
+                        "[red]Please wait[/] while current downloads finish (this may take up to a few minutes)."
                     )
                     executor.shutdown(wait=False, cancel_futures=True)
                     if filename.exists():

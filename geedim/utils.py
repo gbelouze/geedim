@@ -29,10 +29,12 @@ import ee
 import numpy as np
 import rasterio as rio
 import requests
+from rasterio.crs import CRS
 from rasterio.env import GDALVersion
 from rasterio.warp import transform_geom
 from rasterio.windows import Window
 from requests.adapters import HTTPAdapter, Retry
+from shapely import Polygon
 from tqdm.auto import tqdm
 
 from geedim.enums import ResamplingMethod
@@ -409,3 +411,22 @@ def asset_id(image_id: str, folder: str = None):
     cloud_folder = pathlib.PurePosixPath(folder.parts[0])
     asset_path = pathlib.PurePosixPath("/".join(folder.parts[1:])).joinpath(im_name)
     return f"projects/{str(cloud_folder)}/assets/{str(asset_path)}"
+
+
+def bounds_to_polygon(
+    left: float, bottom: float, right: float, top: float
+) -> Polygon:
+    return Polygon(
+        [
+            (left, top),
+            (left, bottom),
+            (right, bottom),
+            (right, top),
+            (left, top),
+        ],
+    )
+
+
+def transform_polygon(polygon: Polygon, src_crs: CRS, dst_crs: CRS) -> Polygon:
+    xs, ys = rio.warp.transform(src_crs, dst_crs, *polygon.exterior.xy)
+    return Polygon(zip(xs, ys))
